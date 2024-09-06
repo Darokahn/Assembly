@@ -11,34 +11,48 @@
     pop %rbp
 .endm
 
+.section .data
+
+string:
+    .ascii "hello world!!"
+    .byte 0
+
 .section .text
 
 main:
+    /*
     mov %rdi, %rcx # move the arg count into the counting register
     mov %rsi, %r8 # preserve the value of rsi (I would do this on stack but I am lazy)
     mov $0, %r9 # initialize a counter for argument position
+    */
 
-    call mainloop
+    mov (%rsi), %rsi
 
-mainloop:
-    add $8, %r9
-    mov %r8, %rsi
-    add %r9, %rsi
+    push %rdi
 
-    call printarg
+    jmp loop
+
+    loop:
+        cmpq $2, (%rsp)       
+        jl exit
+        je last
+        call printarg
+        call printspace
+        inc %rsi
+        subq $1, (%rsp)
+        jmp loop
+    last:
+        call printarg
+        call newline
+        call exit
+    end:
+        call exit
     
-
 exit:
     mov $60, %rax
     syscall
 
 print:
-    mov $1, %rax
-    mov $1, %rdi
-    syscall
-    ret
-
-printline:
     push %rsi
     call strlen
     mov %rax, %rdx
@@ -46,6 +60,17 @@ printline:
     mov $1, %rax
     mov $1, %rdi
     syscall
+    ret
+
+printarg:
+    call advancestr
+    inc %rsi
+    call capitalizeString
+    call print
+    ret
+
+printline:
+    call print
     call newline
     ret
 
@@ -58,22 +83,17 @@ newline:
     ret
 
 printspace:
+    push %rsi
     push $32
     mov %rsp, %rsi
     mov $1, %rdx
     call print
     pop %rdx
-    ret
-
-printarg:
-    mov (%rsi), %rsi
-    push %rsi
-    call capitalizeString
     pop %rsi
-    call printline
     ret
 
 capitalizeString:
+    push %rsi
     jmp checkLower
     checkLower:
         call isLowerLetter
@@ -85,14 +105,15 @@ capitalizeString:
         cmpb $0, (%rsi)
         je finishCap
         inc %rsi
-        jne capitalizeString
+        jne checkLower
 
     capitalize:
         call capitalizeChar
         inc %rsi
-        jmp capitalizeString
+        jmp checkLower
         
     finishCap:
+        pop %rsi
         ret
 
 capitalizeChar:
@@ -115,15 +136,19 @@ isLowerLetter:
         mov $0, %rax
         ret
 
+advancestr:
+    start:
+        cmpb $0, (%rsi)
+        je endAdv
+        inc %rsi
+        jmp start
+    endAdv:
+        ret
+
 strlen:
     push %rsi
-    start:
-    cmpb $0, (%rsi)
-    je endLen
-    inc %rsi
-    jmp start
-    endLen:
-        mov %rsi, %rax
-        pop %rsi
-        sub %rsi, %rax
-        ret
+    call advancestr
+    mov %rsi, %rax
+    pop %rsi
+    sub %rsi, %rax
+    ret
